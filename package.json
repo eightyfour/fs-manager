@@ -1,0 +1,16 @@
+{
+    "auth": "eightyfour",
+    "email": "eightyfour@thinkuseful.de",
+    "engines": {
+        "node": ">= v0.10.0"
+    },
+	"name" : "fs-manager",
+	"version" : "0.0.1",
+	"dependencies" : {
+		"express" : "x",
+        "dnode" : "x",
+        "domready" : "x",
+        "dom-opts" : "x",
+        "shoe" : "x"
+	}
+}
