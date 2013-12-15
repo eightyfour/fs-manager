@@ -11,6 +11,7 @@ module.exports = C;
 /*jslint browser: true */
 var domready = require('domready'),
     trade = require('./trade.js'),
+    fileEditor = require('./cannymods/fileEditor.js'),
     pathNavigation = require('./cannymods/pathNavigation.js');
 window.domOpts = window.domOpts || require('dom-opts');
 
@@ -20,6 +21,7 @@ var canny = (function () {
 
     var modules = {};
     pathNavigation(modules);
+    fileEditor(modules);
 
     return {
         init : function () {
@@ -42,57 +44,205 @@ trade.ready(function () {
 
 module.exports = canny;
 
-},{"./cannymods/pathNavigation.js":3,"./trade.js":4,"dom-opts":16,"domready":17}],3:[function(require,module,exports){
+},{"./cannymods/fileEditor.js":3,"./cannymods/pathNavigation.js":4,"./trade.js":6,"dom-opts":18,"domready":19}],3:[function(require,module,exports){
 /*jslint browser: true */
-var trade = require('../trade.js');
+var trade = require('../trade.js'),
+    events = require('../events.js');
+
+var fileEditor = function (modules) {
+    "use strict";
+
+    modules.fileEditor = function (nodeToAppend) {
+
+        events.addServerListener('sendFile', function (obj) {
+             console.log('OPEN FILE IN EDITOR');
+        });
+
+    };
+};
+
+module.exports = fileEditor;
+
+},{"../events.js":5,"../trade.js":6}],4:[function(require,module,exports){
+/*jslint browser: true */
+var trade = require('../trade.js'),
+    events = require('../events.js');
 
 var pathNavigation = function (modules) {
     "use strict";
+    var ul = window.domOpts.createElement('ul', 'pathNavigation'),
+        li,
+        a,
+        currentPath = document.location.pathname,
+        select = {
+            attr : {
+                pathName : 'pathName'
+            },
+            css : {
+                id : 'pathNavigation',
+                openDir : 'openDir',
+                openFile: 'openFile',
+                loading : 'loading',
+                showLoading: 'showLoading'
+            }
+        },
+        fc = {
+            getFullPath : function (node) {
+                var pathName = [], parentNode = node.parentNode, attr, i, trim = '';
+
+                (function parentNode(node) {
+                    if ((attr = node.getAttribute(select.attr.pathName)) !== null) {
+                        pathName.push(attr);
+                        parentNode(node.parentNode);
+                    } else {
+                        if (currentPath !== '') {
+                            pathName.push(currentPath);
+                        }
+                    }
+                }(node));
+                for (i = pathName.length - 1; i > 0; i--) {
+                    trim += pathName[i] + '/';
+                }
+                trim += pathName[0];
+                return trim;
+            }
+        };
 
     modules.pathNavigation = function (nodeToAppend) {
         console.log('START GENERATE MENU');
-        var ul = window.domOpts.createElement('ul', 'pathNavigation'),
-            li,
-            a,
-            currentPath = document.location.pathname;
+        var ui = {
+
+            },
+            events = {
+                directoryClick : function (node) {
+                    node.addEventListener('click', function (e) {
+                        var parentNode = this.parentNode;
+
+                        if (parentNode.domHasClass(select.css.openDir)) {
+                            parentNode.domRemoveClass(select.css.openDir);
+                        } else {
+
+                            if (parentNode.children.length <= 1) {
+                                parentNode.domAddClass(select.css.openDir + ' ' + select.css.showLoading + ' ' + select.css.loading);
+                                trade.listPath(fc.getFullPath(parentNode), function (obj) {
+                                    renderPathList(parentNode, obj, function () {
+                                        parentNode.domRemoveClass(select.css.loading);
+                                    });
+                                });
+                            } else {
+                                parentNode.domAddClass(select.css.openDir);
+                                console.log('FOLDER ALREADY LOADED');
+                            }
+                        }
+                    });
+                },
+                fileClick : function (node) {
+                    node.addEventListener('click', function (e) {
+                        var parentNode = this.parentNode;
+
+                        if (parentNode.domHasClass(select.css.openFile)) {
+                            parentNode.domRemoveClass(select.css.openFile);
+                        } else {
+                            parentNode.domAddClass(select.css.openFile);
+                        }
+                    });
+                }
+            },
+            renderPathList = function (parentNode, obj, doneCb) {
+                if (!obj.fail) {
+                    obj.value.forEach(function (elm) {
+                        li = window.domOpts.createElement('li');
+                        a = window.domOpts.createElement('a');
+                        a.innerText = elm.name;
+                        // is directory?
+                        if (elm.d) {
+                            li.style.color = '#f00';
+                            events.directoryClick(a);
+                        } else {
+                            li.style.color = '#0aa';
+                            events.fileClick(a);
+                        }
+                        a.domAppendTo(li);
+                        li.setAttribute(select.attr.pathName, elm.name);
+                        li.domAppendTo(parentNode);
+                    });
+                } else {
+                    console.log('SOMETHING WRONG ON SERVER SIDE - CANT GET LISTPATH');
+                }
+                doneCb();
+            };
+
+        ul = window.domOpts.createElement('ul', select.css.id, select.css.openDir);
+        ul.domAppendTo(nodeToAppend);
+
         // remove trailing '/'
         if (currentPath && currentPath[0] === '/') {
             currentPath = currentPath.slice(1);
         }
 
+//        events.addServerListener('sendPathList', function (obj) {
+//            renderPathList(obj);
+//        });
+        ul.domAddClass(select.css.loading + ' ' + select.css.showLoading);
         trade.listPath(currentPath, function (obj) {
-            if (!obj.fail) {
-                obj.value.forEach(function (elm) {
-                    li = window.domOpts.createElement('li');
-                    li.style.color = elm.d ? '#330000' : '#000033';
-                    a = window.domOpts.createElement('a');
-                    a.addEventListener('click', function (e) {
-                        alert(this.innerText);
-                    });
-                    a.innerText = elm.name;
-                    a.domAppendTo(li);
-                    li.domAppendTo(ul);
-                });
-            } else {
-                console.log('SOMETHING WRONG ON SERVER SIDE - CANT GET LISTPATH');
-            }
-
+            renderPathList(ul, obj, function () {
+                ul.domRemoveClass(select.css.loading);
+            });
         });
 
-        ul.domAppendTo(nodeToAppend);
+
 
     };
 };
 
 module.exports = pathNavigation;
 
-},{"../trade.js":4}],4:[function(require,module,exports){
+},{"../events.js":5,"../trade.js":6}],5:[function(require,module,exports){
+/**
+ * Created by han.
+ *
+ * All server events could be called from server.
+ */
+var events = (function () {
+    "use strict";
+    var eventQueue = {},
+        callQueue = function (name, args) {
+            if (eventQueue.hasOwnProperty(name)) {
+                eventQueue[name].map(function (fc) {
+                    fc.apply(null, args);
+                });
+            }
+        };
+    return {
+        serverEvents : {
+            sendFile : function () {
+                console.log('sendFile CALLED', [].slice.call(arguments));
+                callQueue('sendFile', [].slice.call(arguments));
+            },
+            sendPathList : function () {
+                console.log('sendPathList CALLED', [].slice.call(arguments));
+                callQueue('sendPathList', [].slice.call(arguments));
+            }
+        },
+        addServerListener : function (name, cb) {
+            if (eventQueue.hasOwnProperty(name)) {
+                eventQueue[name].push(cb);
+            } else {
+                eventQueue[name] = [cb];
+            }
+        }
+    };
+}());
+
+module.exports = events;
+},{}],6:[function(require,module,exports){
 /*jslint browser: true */
 /**
  * handle the connection between server and client
  */
 var domready = require('domready'),
     C = require('../CONST.js'),
+    events = require('./events.js'),
     shoe = require('shoe'),
     dnode = require('dnode'),
     stream = shoe('/trade'),
@@ -120,7 +270,7 @@ var trade = (function () {
         init : function (s) {
 
             server = s;
-            server.init('der client');
+            server.init(events.serverEvents);
             // call ready queue
             cbs.map(function (cb) {
                 cb && cb();
@@ -148,15 +298,14 @@ domready(function () {
 });
 
 module.exports = trade;
-
-},{"../CONST.js":1,"dnode":5,"dom-opts":16,"domready":17,"shoe":18}],5:[function(require,module,exports){
+},{"../CONST.js":1,"./events.js":5,"dnode":7,"dom-opts":18,"domready":19,"shoe":20}],7:[function(require,module,exports){
 var dnode = require('./lib/dnode');
 
 module.exports = function (cons, opts) {
     return new dnode(cons, opts);
 };
 
-},{"./lib/dnode":6}],6:[function(require,module,exports){
+},{"./lib/dnode":8}],8:[function(require,module,exports){
 var process=require("__browserify_process");var protocol = require('dnode-protocol');
 var Stream = require('stream');
 var json = typeof JSON === 'object' ? JSON : require('jsonify');
@@ -311,7 +460,7 @@ dnode.prototype.destroy = function () {
     this.end();
 };
 
-},{"__browserify_process":22,"dnode-protocol":7,"jsonify":13,"stream":31}],7:[function(require,module,exports){
+},{"__browserify_process":24,"dnode-protocol":9,"jsonify":15,"stream":33}],9:[function(require,module,exports){
 var EventEmitter = require('events').EventEmitter;
 var scrubber = require('./lib/scrub');
 var objectKeys = require('./lib/keys');
@@ -438,7 +587,7 @@ Proto.prototype.apply = function (f, args) {
     catch (err) { this.emit('error', err) }
 };
 
-},{"./lib/foreach":8,"./lib/is_enum":9,"./lib/keys":10,"./lib/scrub":11,"events":20}],8:[function(require,module,exports){
+},{"./lib/foreach":10,"./lib/is_enum":11,"./lib/keys":12,"./lib/scrub":13,"events":22}],10:[function(require,module,exports){
 module.exports = function forEach (xs, f) {
     if (xs.forEach) return xs.forEach(f)
     for (var i = 0; i < xs.length; i++) {
@@ -446,7 +595,7 @@ module.exports = function forEach (xs, f) {
     }
 }
 
-},{}],9:[function(require,module,exports){
+},{}],11:[function(require,module,exports){
 var objectKeys = require('./keys');
 
 module.exports = function (obj, key) {
@@ -460,14 +609,14 @@ module.exports = function (obj, key) {
     return false;
 };
 
-},{"./keys":10}],10:[function(require,module,exports){
+},{"./keys":12}],12:[function(require,module,exports){
 module.exports = Object.keys || function (obj) {
     var keys = [];
     for (var key in obj) keys.push(key);
     return keys;
 };
 
-},{}],11:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 var traverse = require('traverse');
 var objectKeys = require('./keys');
 var forEach = require('./foreach');
@@ -541,7 +690,7 @@ Scrubber.prototype.unscrub = function (msg, f) {
     return args;
 };
 
-},{"./foreach":8,"./keys":10,"traverse":12}],12:[function(require,module,exports){
+},{"./foreach":10,"./keys":12,"traverse":14}],14:[function(require,module,exports){
 var traverse = module.exports = function (obj) {
     return new Traverse(obj);
 };
@@ -857,11 +1006,11 @@ var hasOwnProperty = Object.hasOwnProperty || function (obj, key) {
     return key in obj;
 };
 
-},{}],13:[function(require,module,exports){
+},{}],15:[function(require,module,exports){
 exports.parse = require('./lib/parse');
 exports.stringify = require('./lib/stringify');
 
-},{"./lib/parse":14,"./lib/stringify":15}],14:[function(require,module,exports){
+},{"./lib/parse":16,"./lib/stringify":17}],16:[function(require,module,exports){
 var at, // The index of the current character
     ch, // The current character
     escapee = {
@@ -1136,7 +1285,7 @@ module.exports = function (source, reviver) {
     }({'': result}, '')) : result;
 };
 
-},{}],15:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
     escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
     gap,
@@ -1292,7 +1441,7 @@ module.exports = function (value, replacer, space) {
     return str('', {'': value});
 };
 
-},{}],16:[function(require,module,exports){
+},{}],18:[function(require,module,exports){
 /*global HTMLElement */
 /*jslint browser: true */
 
@@ -1325,25 +1474,43 @@ module.exports =  domOpts;
 // dom operations:
 HTMLElement.prototype.domAddClass = function (addClasses) {
     "use strict";
-    console.log('add class und so');
-    this.setAttribute('class', this.getAttribute('class') + ' ' + addClasses);
+    var attrClass = this.getAttribute('class');
+    this.setAttribute('class', attrClass !== null ? attrClass + ' ' + addClasses : addClasses);
     return this;
 };
 
 HTMLElement.prototype.domRemoveClass = function (removeableClasses) {
     "use strict";
     var removeClasses = (removeableClasses && removeableClasses.split(' ')) || this.getAttribute('class').split(' '),
-        currentClasses = this.getAttribute('class').split(' '),
+        attrClass = this.getAttribute('class'),
+        currentClasses,
         i,
         idx;
-    for (i = 0; i < removeClasses.length; i++) {
-        idx = currentClasses.indexOf(removeClasses[i]);
-        if (idx >= 0) {
-            currentClasses = currentClasses.slice(0, idx).concat(currentClasses.slice(idx + 1, currentClasses.length - 1));
+    if (attrClass !== null) {
+        currentClasses = attrClass.split(' ');
+        for (i = 0; i < removeClasses.length; i++) {
+            idx = currentClasses.indexOf(removeClasses[i]);
+            if (idx >= 0) {
+                currentClasses = currentClasses.slice(0, idx).concat(currentClasses.slice(idx + 1, currentClasses.length - 1));
+            }
+        }
+        this.setAttribute('class', currentClasses.join(' '));
+    }
+    return this;
+};
+
+// dom operations:
+HTMLElement.prototype.domHasClass = function (className) {
+    "use strict";
+    var classes = this.getAttribute('class'), currentClasses, i;
+    if (classes !== null) {
+        currentClasses = classes.split(' ');
+        for (i = 0; i < currentClasses.length; i++) {
+            if (currentClasses[i] === className) {return true; }
+            if (currentClasses[i] === className) {return true; }
         }
     }
-    this.setAttribute('class', currentClasses.join(' '));
-    return this;
+    return false;
 };
 
 HTMLElement.prototype.domRemove = function () {
@@ -1360,7 +1527,7 @@ HTMLElement.prototype.domAppendTo = function (elem) {
     node.appendChild(this);
     return this;
 };
-},{}],17:[function(require,module,exports){
+},{}],19:[function(require,module,exports){
 /*!
   * domready (c) Dustin Diaz 2012 - License MIT
   */
@@ -1417,7 +1584,7 @@ HTMLElement.prototype.domAppendTo = function (elem) {
     })
 })
 
-},{}],18:[function(require,module,exports){
+},{}],20:[function(require,module,exports){
 var Stream = require('stream');
 var sockjs = require('sockjs-client');
 var resolve = require('url').resolve;
@@ -1482,7 +1649,7 @@ module.exports = function (u, cb) {
     return stream;
 };
 
-},{"sockjs-client":19,"stream":31,"url":38}],19:[function(require,module,exports){
+},{"sockjs-client":21,"stream":33,"url":40}],21:[function(require,module,exports){
 /* SockJS client, version 0.3.1.7.ga67f.dirty, http://sockjs.org, MIT License
 
 Copyright (c) 2011-2012 VMware, Inc.
@@ -3807,7 +3974,7 @@ if (typeof module === 'object' && module && module.exports) {
 // [*] End of lib/all.js
 
 
-},{}],20:[function(require,module,exports){
+},{}],22:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -4109,7 +4276,7 @@ function isUndefined(arg) {
   return arg === void 0;
 }
 
-},{}],21:[function(require,module,exports){
+},{}],23:[function(require,module,exports){
 if (typeof Object.create === 'function') {
   // implementation from standard node.js 'util' module
   module.exports = function inherits(ctor, superCtor) {
@@ -4134,7 +4301,7 @@ if (typeof Object.create === 'function') {
   }
 }
 
-},{}],22:[function(require,module,exports){
+},{}],24:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -4188,7 +4355,7 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],23:[function(require,module,exports){
+},{}],25:[function(require,module,exports){
 var TA = require('typedarray')
 var xDataView = typeof DataView === 'undefined'
   ? TA.DataView : DataView
@@ -5321,7 +5488,7 @@ function assert (test, message) {
   if (!test) throw new Error(message || 'Failed assertion')
 }
 
-},{"base64-js":24,"typedarray":25}],24:[function(require,module,exports){
+},{"base64-js":26,"typedarray":27}],26:[function(require,module,exports){
 (function (exports) {
 	'use strict';
 
@@ -5407,7 +5574,7 @@ function assert (test, message) {
 	module.exports.fromByteArray = uint8ToBase64;
 }());
 
-},{}],25:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 var undefined = (void 0); // Paranoia
 
 // Beyond this value, index getters/setters (i.e. array[0], array[1]) are so slow to
@@ -6031,7 +6198,7 @@ function packF32(v) { return packIEEE754(v, 8, 23); }
 
 }());
 
-},{}],26:[function(require,module,exports){
+},{}],28:[function(require,module,exports){
 var global=typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {};/*! http://mths.be/punycode v1.2.3 by @mathias */
 ;(function(root) {
 
@@ -6541,7 +6708,7 @@ var global=typeof self !== "undefined" ? self : typeof window !== "undefined" ? 
 
 }(this));
 
-},{}],27:[function(require,module,exports){
+},{}],29:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6627,7 +6794,7 @@ var isArray = Array.isArray || function (xs) {
   return Object.prototype.toString.call(xs) === '[object Array]';
 };
 
-},{}],28:[function(require,module,exports){
+},{}],30:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6714,13 +6881,13 @@ var objectKeys = Object.keys || function (obj) {
   return res;
 };
 
-},{}],29:[function(require,module,exports){
+},{}],31:[function(require,module,exports){
 'use strict';
 
 exports.decode = exports.parse = require('./decode');
 exports.encode = exports.stringify = require('./encode');
 
-},{"./decode":27,"./encode":28}],30:[function(require,module,exports){
+},{"./decode":29,"./encode":30}],32:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6794,7 +6961,7 @@ function onend() {
   });
 }
 
-},{"./readable.js":34,"./writable.js":36,"inherits":21,"process/browser.js":32}],31:[function(require,module,exports){
+},{"./readable.js":36,"./writable.js":38,"inherits":23,"process/browser.js":34}],33:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6923,9 +7090,9 @@ Stream.prototype.pipe = function(dest, options) {
   return dest;
 };
 
-},{"./duplex.js":30,"./passthrough.js":33,"./readable.js":34,"./transform.js":35,"./writable.js":36,"events":20,"inherits":21}],32:[function(require,module,exports){
-module.exports=require(22)
-},{}],33:[function(require,module,exports){
+},{"./duplex.js":32,"./passthrough.js":35,"./readable.js":36,"./transform.js":37,"./writable.js":38,"events":22,"inherits":23}],34:[function(require,module,exports){
+module.exports=require(24)
+},{}],35:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -6968,7 +7135,7 @@ PassThrough.prototype._transform = function(chunk, encoding, cb) {
   cb(null, chunk);
 };
 
-},{"./transform.js":35,"inherits":21}],34:[function(require,module,exports){
+},{"./transform.js":37,"inherits":23}],36:[function(require,module,exports){
 var process=require("__browserify_process");// Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -7903,7 +8070,7 @@ function indexOf (xs, x) {
   return -1;
 }
 
-},{"./index.js":31,"__browserify_process":22,"buffer":23,"events":20,"inherits":21,"process/browser.js":32,"string_decoder":37}],35:[function(require,module,exports){
+},{"./index.js":33,"__browserify_process":24,"buffer":25,"events":22,"inherits":23,"process/browser.js":34,"string_decoder":39}],37:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -8109,7 +8276,7 @@ function done(stream, er) {
   return stream.push(null);
 }
 
-},{"./duplex.js":30,"inherits":21}],36:[function(require,module,exports){
+},{"./duplex.js":32,"inherits":23}],38:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -8479,7 +8646,7 @@ function endWritable(stream, state, cb) {
   state.ended = true;
 }
 
-},{"./index.js":31,"buffer":23,"inherits":21,"process/browser.js":32}],37:[function(require,module,exports){
+},{"./index.js":33,"buffer":25,"inherits":23,"process/browser.js":34}],39:[function(require,module,exports){
 // Copyright Joyent, Inc. and other Node contributors.
 //
 // Permission is hereby granted, free of charge, to any person obtaining a
@@ -8672,7 +8839,7 @@ function base64DetectIncompleteChar(buffer) {
   return incomplete;
 }
 
-},{"buffer":23}],38:[function(require,module,exports){
+},{"buffer":25}],40:[function(require,module,exports){
 /*jshint strict:true node:true es5:true onevar:true laxcomma:true laxbreak:true eqeqeq:true immed:true latedef:true*/
 (function () {
   "use strict";
@@ -9305,5 +9472,5 @@ function parseHost(host) {
 
 }());
 
-},{"punycode":26,"querystring":29}]},{},[2])
+},{"punycode":28,"querystring":31}]},{},[2])
 ;

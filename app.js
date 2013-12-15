@@ -2,6 +2,7 @@
 /*jslint node: true */
 var express = require('express'),
     fs = require('fs'),
+    C = require('./lib/CONST.js'),
     shoe = require('shoe'),
     dnode = require('dnode'),
     bash = require('./lib/server/bash.js');
@@ -29,8 +30,15 @@ var con;
 var sock = shoe(function (stream) {
     "use strict";
     var d = dnode({
-        init : function (msg) {
-            console.log('HALLO: ' + msg);
+        init : function (clientEvents) {
+            console.log('HALLO: ' + clientEvents);
+
+            bash.exec({
+                comand : C.BASH.LS,
+                path : '.'
+            }, function (obj) {
+                clientEvents.sendPathList(obj);
+            });
         },
         bash : bash
     });
