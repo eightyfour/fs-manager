@@ -1,3 +1,24 @@
+#pathMenu {
+    width: 302px;
+    float: left;
+    min-height: 200px;
+}
+/* MODULES */
+#fileEditor{
+    float: left;
+    position: relative;
+}
+#fileEditor .hidden{display: none;}
+#fileEditor .aceEditor {
+    position: absolute;
+    width: 500px;
+    height: 400px;
+}
+#fileEditor #aceEditor2 {
+    position: absolute;
+    width: 500px;
+    height: 400px;
+}
 #pathNavigation {position: relative;}
 #pathNavigation a {
     min-width: 100px;

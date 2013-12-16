@@ -5,6 +5,7 @@ var express = require('express'),
     C = require('./lib/CONST.js'),
     shoe = require('shoe'),
     dnode = require('dnode'),
+    fileManager = require('./lib/server/fileManager.js'),
     bash = require('./lib/server/bash.js');
 var app = express();
 
@@ -40,7 +41,8 @@ var sock = shoe(function (stream) {
                 clientEvents.sendPathList(obj);
             });
         },
-        bash : bash
+        bash : bash,
+        fileManager : fileManager
     });
     d.pipe(stream).pipe(d);
     con = stream;

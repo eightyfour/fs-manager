@@ -45,17 +45,60 @@ trade.ready(function () {
 module.exports = canny;
 
 },{"./cannymods/fileEditor.js":3,"./cannymods/pathNavigation.js":4,"./trade.js":6,"dom-opts":18,"domready":19}],3:[function(require,module,exports){
+/*global ace */
 /*jslint browser: true */
 var trade = require('../trade.js'),
     events = require('../events.js');
 
+window.domOpts = window.domOpts || require('dom-opts');
+
 var fileEditor = function (modules) {
     "use strict";
 
+    var findTag = function (root, tag) {
+        var tags = [];
+        [].slice.call(root.children).forEach(function (e) {
+            if (e.tagName.toLowerCase() === tag.toLowerCase()) {
+                tags.push(e);
+            }
+        });
+        return tags;
+    };
+
     modules.fileEditor = function (nodeToAppend) {
+        nodeToAppend.setAttribute('id', 'fileEditor');
+        var fc = {
+            showInEditor : function (obj) {
+                var pre, editor, pres = findTag(nodeToAppend, 'pre');
+
+
+                var actualPre = document.getElementById(obj.name);
+
+                if (pres.length > 0) {
+                    // there are other open editors
+                    pres.forEach(function (e) {
+                        e.domAddClass('hidden');
+                    });
+                }
+
+                if (actualPre !== null) {
+                    actualPre.domRemoveClass('hidden');
+                } else {
+                    pre = window.domOpts.createElement('pre', obj.name, 'aceEditor');
+                    pre.innerHTML = obj.file;
+                    pre.domAppendTo(nodeToAppend);
+                    editor = ace.edit(obj.name);
+                    editor.setTheme("ace/theme/twilight");
+                    editor.getSession().setMode("ace/mode/javascript");
+                }
+
+
+            }
+        };
 
         events.addServerListener('sendFile', function (obj) {
-             console.log('OPEN FILE IN EDITOR');
+            console.log('OPEN FILE IN EDITOR');
+            fc.showInEditor(obj);
         });
 
     };
@@ -63,7 +106,7 @@ var fileEditor = function (modules) {
 
 module.exports = fileEditor;
 
-},{"../events.js":5,"../trade.js":6}],4:[function(require,module,exports){
+},{"../events.js":5,"../trade.js":6,"dom-opts":18}],4:[function(require,module,exports){
 /*jslint browser: true */
 var trade = require('../trade.js'),
     events = require('../events.js');
@@ -140,11 +183,12 @@ var pathNavigation = function (modules) {
                     node.addEventListener('click', function (e) {
                         var parentNode = this.parentNode;
 
-                        if (parentNode.domHasClass(select.css.openFile)) {
-                            parentNode.domRemoveClass(select.css.openFile);
-                        } else {
+//                        if (parentNode.domHasClass(select.css.openFile)) {
+//                            parentNode.domRemoveClass(select.css.openFile);
+//                        } else {
                             parentNode.domAddClass(select.css.openFile);
-                        }
+                            trade.getFile(fc.getFullPath(parentNode));
+//                        }
                     });
                 }
             },
@@ -189,9 +233,6 @@ var pathNavigation = function (modules) {
                 ul.domRemoveClass(select.css.loading);
             });
         });
-
-
-
     };
 };
 
@@ -201,7 +242,10 @@ module.exports = pathNavigation;
 /**
  * Created by han.
  *
- * All server events could be called from server.
+ * All server events. Multiple clients can register on each event
+ * and will be notified if method is called from server.
+ *
+ * TODO RENAME FILE
  */
 var events = (function () {
     "use strict";
@@ -216,11 +260,9 @@ var events = (function () {
     return {
         serverEvents : {
             sendFile : function () {
-                console.log('sendFile CALLED', [].slice.call(arguments));
                 callQueue('sendFile', [].slice.call(arguments));
             },
             sendPathList : function () {
-                console.log('sendPathList CALLED', [].slice.call(arguments));
                 callQueue('sendPathList', [].slice.call(arguments));
             }
         },
@@ -283,8 +325,14 @@ var trade = (function () {
                 path : path
             }, cb);
         },
-        getFile : function (cb) {
-
+        getFile : function (filePath) {
+            server.fileManager.getFile(filePath, function (file) {
+                var fileSplit = filePath.split('/');
+                events.serverEvents.sendFile({
+                    name : fileSplit[fileSplit.length - 1],
+                    file : file
+                });
+            });
         }
     };
 }());
@@ -1472,13 +1520,20 @@ domOpts.createElement = function (tag, id, classes) {
 module.exports =  domOpts;
 
 // dom operations:
+// TOOD don't add classes twice
 HTMLElement.prototype.domAddClass = function (addClasses) {
     "use strict";
-    var attrClass = this.getAttribute('class');
-    this.setAttribute('class', attrClass !== null ? attrClass + ' ' + addClasses : addClasses);
+    var attrClass = this.getAttribute('class'),
+        addClassesList = addClasses.split(' '), newClasses = [], i;
+    for (i = 0; i < addClassesList.length; i++) {
+        if (!this.domHasClass(addClassesList[i])) {
+            newClasses.push(addClassesList[i]);
+        }
+    }
+    this.setAttribute('class', attrClass !== null ? attrClass + ' ' + newClasses.join(' ') : newClasses.join(' '));
     return this;
 };
-
+// TOOD remove all classes with same name
 HTMLElement.prototype.domRemoveClass = function (removeableClasses) {
     "use strict";
     var removeClasses = (removeableClasses && removeableClasses.split(' ')) || this.getAttribute('class').split(' '),
