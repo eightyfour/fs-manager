@@ -9,6 +9,8 @@ var express = require('express'),
     bash = require('./lib/server/bash.js');
 var app = express();
 
+global.projectFolder = __dirname;
+
 
 app.use(express.static(__dirname + '/fe'));
 

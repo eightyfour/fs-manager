@@ -11,8 +11,8 @@
 #fileEditor .hidden{display: none;}
 #fileEditor .aceEditor {
     position: absolute;
-    width: 500px;
-    height: 400px;
+    width: 700px;
+    height: 600px;
 }
 #fileEditor #aceEditor2 {
     position: absolute;
