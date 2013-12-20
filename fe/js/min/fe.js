@@ -133,6 +133,16 @@ module.exports = pathNavigation;
 var C = {
     BASH : {
         LS : 'ls'
+    },
+    FILE_MANAGER : {
+        FILE_TYPES : {
+            IMAGE : 'image',
+            FILE  : 'file'
+        },
+        ENCODING : {
+            image : 'base64',
+            file : 'utf8'
+        }
     }
 };
 
@@ -182,7 +192,8 @@ module.exports = events;
 var domready = require('domready'),
     trade = require('./trade.js'),
     fileEditor = require('./cannymods/fileEditor.js'),
-    pathNavigation = require('./cannymods/pathNavigation.js');
+    pathNavigation = require('./cannymods/pathNavigation.js'),
+    imageViewer = require('./cannymods/imageViewer.js');
 window.domOpts = window.domOpts || require('dom-opts');
 
 
@@ -192,6 +203,7 @@ var canny = (function () {
     var modules = {};
     pathNavigation(modules);
     fileEditor(modules);
+    imageViewer(modules);
 
     return {
         init : function () {
@@ -214,7 +226,7 @@ trade.ready(function () {
 
 module.exports = canny;
 
-},{"./trade.js":2,"./cannymods/fileEditor.js":6,"./cannymods/pathNavigation.js":1,"domready":7,"dom-opts":8}],7:[function(require,module,exports){
+},{"./trade.js":2,"./cannymods/fileEditor.js":6,"./cannymods/pathNavigation.js":1,"./cannymods/imageViewer.js":7,"domready":8,"dom-opts":9}],8:[function(require,module,exports){
 /*!
   * domready (c) Dustin Diaz 2012 - License MIT
   */
@@ -271,7 +283,7 @@ module.exports = canny;
     })
 })
 
-},{}],8:[function(require,module,exports){
+},{}],9:[function(require,module,exports){
 (function(){/*global HTMLElement */
 /*jslint browser: true */
 
@@ -415,9 +427,12 @@ var trade = (function () {
         getFile : function (filePath) {
             server.fileManager.getFile(filePath, function (file) {
                 var fileSplit = filePath.split('/');
+                // TODO merge object or extend it with name
                 events.serverEvents.sendFile({
                     name : fileSplit[fileSplit.length - 1],
-                    file : file
+                    data : file.data,
+                    filePath : file.filePath,
+                    fileType : file.fileType
                 });
             });
         }
@@ -433,11 +448,12 @@ domready(function () {
 });
 
 module.exports = trade;
-},{"../CONST.js":4,"./events.js":3,"shoe":9,"dnode":10,"dom-opts":8,"domready":7}],6:[function(require,module,exports){
+},{"../CONST.js":4,"./events.js":3,"shoe":10,"dnode":11,"dom-opts":9,"domready":8}],6:[function(require,module,exports){
 (function(){/*global ace */
 /*jslint browser: true */
 var trade = require('../trade.js'),
-    events = require('../events.js');
+    events = require('../events.js'),
+    C = require('../../CONST.js');
 
 window.domOpts = window.domOpts || require('dom-opts');
 
@@ -445,23 +461,35 @@ var fileEditor = function (modules) {
     "use strict";
 
     var findTag = function (root, tag) {
-        var tags = [];
-        [].slice.call(root.children).forEach(function (e) {
-            if (e.tagName.toLowerCase() === tag.toLowerCase()) {
-                tags.push(e);
-            }
-        });
-        return tags;
-    };
+            var tags = [];
+            [].slice.call(root.children).forEach(function (e) {
+                if (e.tagName.toLowerCase() === tag.toLowerCase()) {
+                    tags.push(e);
+                }
+            });
+            return tags;
+        },
+        aceFileExtensionMap = {
+            js : 'javascript'
+        },
+        getExtension = function (filePath) {
+            return filePath.slice(filePath.lastIndexOf('.') + 1);
+        };
+
+    var editorSaver = (function () {
+        var editors = {};
+        return {
+            editors : editors
+        };
+    }());
 
     modules.fileEditor = function (nodeToAppend) {
         nodeToAppend.setAttribute('id', 'fileEditor');
         var fc = {
             showInEditor : function (obj) {
-                var pre, editor, pres = findTag(nodeToAppend, 'pre');
-
-
-                var actualPre = document.getElementById(obj.name);
+                var pre, editor, pres = findTag(nodeToAppend, 'pre'),
+                // TODO doesn't work if two files has same name
+                    actualPre = document.getElementById(obj.name);
 
                 if (pres.length > 0) {
                     // there are other open editors
@@ -474,20 +502,22 @@ var fileEditor = function (modules) {
                     actualPre.domRemoveClass('hidden');
                 } else {
                     pre = window.domOpts.createElement('pre', obj.name, 'aceEditor');
-                    pre.innerHTML = obj.file;
+                    pre.innerHTML = obj.data;
                     pre.domAppendTo(nodeToAppend);
                     editor = ace.edit(obj.name);
                     editor.setTheme("ace/theme/twilight");
                     editor.getSession().setMode("ace/mode/javascript");
                 }
-
-
             }
         };
 
         events.addServerListener('sendFile', function (obj) {
             console.log('OPEN FILE IN EDITOR');
-            fc.showInEditor(obj);
+            if (obj.fileType === C.FILE_MANAGER.FILE_TYPES.FILE) {
+                fc.showInEditor(obj);
+            } else {
+                console.log('fileEditor: IS NOT A FILE - DO NOTHING');
+            }
         });
 
     };
@@ -496,7 +526,70 @@ var fileEditor = function (modules) {
 module.exports = fileEditor;
 
 })()
-},{"../trade.js":2,"../events.js":3,"dom-opts":8}],11:[function(require,module,exports){
+},{"../trade.js":2,"../events.js":3,"../../CONST.js":4,"dom-opts":9}],7:[function(require,module,exports){
+(function(){/*global ace */
+/*jslint browser: true */
+var trade = require('../trade.js'),
+    events = require('../events.js'),
+    C = require('../../CONST.js');
+
+window.domOpts = window.domOpts || require('dom-opts');
+
+var imageViewer = function (modules) {
+    "use strict";
+
+    var findTag = function (root, tag) {
+            var tags = [];
+            [].slice.call(root.children).forEach(function (e) {
+                if (e.tagName.toLowerCase() === tag.toLowerCase()) {
+                    tags.push(e);
+                }
+            });
+            return tags;
+        };
+
+
+    modules.imageViewer = function (nodeToAppend) {
+        nodeToAppend.setAttribute('id', 'fileEditor');
+        var fc = {
+            showImage : function (obj) {
+                var img, editor, pres = findTag(nodeToAppend, 'img'),
+                // TODO doesn't work if two files has same name
+                    actualImg = document.getElementById(obj.name);
+
+                if (pres.length > 0) {
+                    // there are other open images
+                    pres.forEach(function (e) {
+                        e.domAddClass('hidden');
+                    });
+                }
+                img = new Image();
+                img.onload = function () {
+                    console.log('DONE IMAGE');
+                };
+                img.src =  "data:image/png;base64," + obj.data;
+                img.domAppendTo(nodeToAppend);
+//                img.width = "100";
+//                img.height = "100";
+
+            }
+        };
+
+        events.addServerListener('sendFile', function (obj) {
+            if (obj.fileType === C.FILE_MANAGER.FILE_TYPES.IMAGE) {
+                fc.showImage(obj);
+            } else {
+                console.log('imageViewer: IS NOT A IMAGE - DO NOTHING');
+            }
+        });
+
+    };
+};
+
+module.exports = imageViewer;
+
+})()
+},{"../trade.js":2,"../events.js":3,"../../CONST.js":4,"dom-opts":9}],12:[function(require,module,exports){
 var events = require('events');
 var util = require('util');
 
@@ -617,7 +710,7 @@ Stream.prototype.pipe = function(dest, options) {
   return dest;
 };
 
-},{"events":12,"util":13}],14:[function(require,module,exports){
+},{"events":13,"util":14}],15:[function(require,module,exports){
 var punycode = { encode : function (s) { return s } };
 
 exports.parse = urlParse;
@@ -1223,14 +1316,14 @@ function parseHost(host) {
   return out;
 }
 
-},{"querystring":15}],10:[function(require,module,exports){
+},{"querystring":16}],11:[function(require,module,exports){
 var dnode = require('./lib/dnode');
 
 module.exports = function (cons, opts) {
     return new dnode(cons, opts);
 };
 
-},{"./lib/dnode":16}],17:[function(require,module,exports){
+},{"./lib/dnode":17}],18:[function(require,module,exports){
 // shim for using process in browser
 
 var process = module.exports = {};
@@ -1284,7 +1377,7 @@ process.chdir = function (dir) {
     throw new Error('process.chdir is not supported');
 };
 
-},{}],12:[function(require,module,exports){
+},{}],13:[function(require,module,exports){
 (function(process){if (!process.EventEmitter) process.EventEmitter = function () {};
 
 var EventEmitter = exports.EventEmitter = process.EventEmitter;
@@ -1470,7 +1563,7 @@ EventEmitter.prototype.listeners = function(type) {
 };
 
 })(require("__browserify_process"))
-},{"__browserify_process":17}],13:[function(require,module,exports){
+},{"__browserify_process":18}],14:[function(require,module,exports){
 var events = require('events');
 
 exports.isArray = isArray;
@@ -1823,7 +1916,7 @@ exports.format = function(f) {
   return str;
 };
 
-},{"events":12}],15:[function(require,module,exports){
+},{"events":13}],16:[function(require,module,exports){
 
 /**
  * Object#toString() ref for stringify().
@@ -2142,7 +2235,7 @@ function decode(str) {
   }
 }
 
-},{}],9:[function(require,module,exports){
+},{}],10:[function(require,module,exports){
 var Stream = require('stream');
 var sockjs = require('sockjs-client');
 var resolve = require('url').resolve;
@@ -2207,7 +2300,7 @@ module.exports = function (u, cb) {
     return stream;
 };
 
-},{"stream":11,"url":14,"sockjs-client":18}],18:[function(require,module,exports){
+},{"stream":12,"url":15,"sockjs-client":19}],19:[function(require,module,exports){
 (function(){/* SockJS client, version 0.3.1.7.ga67f.dirty, http://sockjs.org, MIT License
 
 Copyright (c) 2011-2012 VMware, Inc.
@@ -4533,7 +4626,7 @@ if (typeof module === 'object' && module && module.exports) {
 
 
 })()
-},{}],16:[function(require,module,exports){
+},{}],17:[function(require,module,exports){
 (function(process){var protocol = require('dnode-protocol');
 var Stream = require('stream');
 var json = typeof JSON === 'object' ? JSON : require('jsonify');
@@ -4689,11 +4782,7 @@ dnode.prototype.destroy = function () {
 };
 
 })(require("__browserify_process"))
-},{"stream":11,"jsonify":19,"dnode-protocol":20,"__browserify_process":17}],19:[function(require,module,exports){
-exports.parse = require('./lib/parse');
-exports.stringify = require('./lib/stringify');
-
-},{"./lib/parse":21,"./lib/stringify":22}],20:[function(require,module,exports){
+},{"stream":12,"dnode-protocol":20,"jsonify":21,"__browserify_process":18}],20:[function(require,module,exports){
 var EventEmitter = require('events').EventEmitter;
 var scrubber = require('./lib/scrub');
 var objectKeys = require('./lib/keys');
@@ -4820,7 +4909,26 @@ Proto.prototype.apply = function (f, args) {
     catch (err) { this.emit('error', err) }
 };
 
-},{"events":12,"./lib/keys":23,"./lib/scrub":24,"./lib/foreach":25,"./lib/is_enum":26}],21:[function(require,module,exports){
+},{"events":13,"./lib/scrub":22,"./lib/keys":23,"./lib/foreach":24,"./lib/is_enum":25}],21:[function(require,module,exports){
+exports.parse = require('./lib/parse');
+exports.stringify = require('./lib/stringify');
+
+},{"./lib/parse":26,"./lib/stringify":27}],23:[function(require,module,exports){
+module.exports = Object.keys || function (obj) {
+    var keys = [];
+    for (var key in obj) keys.push(key);
+    return keys;
+};
+
+},{}],24:[function(require,module,exports){
+module.exports = function forEach (xs, f) {
+    if (xs.forEach) return xs.forEach(f)
+    for (var i = 0; i < xs.length; i++) {
+        f.call(xs, xs[i], i);
+    }
+}
+
+},{}],26:[function(require,module,exports){
 var at, // The index of the current character
     ch, // The current character
     escapee = {
@@ -5095,7 +5203,7 @@ module.exports = function (source, reviver) {
     }({'': result}, '')) : result;
 };
 
-},{}],22:[function(require,module,exports){
+},{}],27:[function(require,module,exports){
 var cx = /[\u0000\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
     escapable = /[\\\"\x00-\x1f\x7f-\x9f\u00ad\u0600-\u0604\u070f\u17b4\u17b5\u200c-\u200f\u2028-\u202f\u2060-\u206f\ufeff\ufff0-\uffff]/g,
     gap,
@@ -5251,22 +5359,7 @@ module.exports = function (value, replacer, space) {
     return str('', {'': value});
 };
 
-},{}],23:[function(require,module,exports){
-module.exports = Object.keys || function (obj) {
-    var keys = [];
-    for (var key in obj) keys.push(key);
-    return keys;
-};
-
 },{}],25:[function(require,module,exports){
-module.exports = function forEach (xs, f) {
-    if (xs.forEach) return xs.forEach(f)
-    for (var i = 0; i < xs.length; i++) {
-        f.call(xs, xs[i], i);
-    }
-}
-
-},{}],26:[function(require,module,exports){
 var objectKeys = require('./keys');
 
 module.exports = function (obj, key) {
@@ -5280,7 +5373,7 @@ module.exports = function (obj, key) {
     return false;
 };
 
-},{"./keys":23}],24:[function(require,module,exports){
+},{"./keys":23}],22:[function(require,module,exports){
 var traverse = require('traverse');
 var objectKeys = require('./keys');
 var forEach = require('./foreach');
@@ -5354,7 +5447,7 @@ Scrubber.prototype.unscrub = function (msg, f) {
     return args;
 };
 
-},{"./keys":23,"./foreach":25,"traverse":27}],27:[function(require,module,exports){
+},{"./foreach":24,"./keys":23,"traverse":28}],28:[function(require,module,exports){
 var traverse = module.exports = function (obj) {
     return new Traverse(obj);
 };
