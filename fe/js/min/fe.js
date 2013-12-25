@@ -44,7 +44,8 @@ var canny = (function () {
                     modules[attribute](node);
                 }
             });
-        }
+        },
+        mod : modules
     };
 }());
 
@@ -153,7 +154,10 @@ window.domOpts = window.domOpts || require('dom-opts');
 var imageViewer = function (modules) {
     "use strict";
 
-    var findTag = function (root, tag) {
+    var config = {
+            idPrefix : 'imageViewer_'
+        },
+        findTag = function (root, tag) {
             var tags = [];
             [].slice.call(root.children).forEach(function (e) {
                 if (e.tagName.toLowerCase() === tag.toLowerCase()) {
@@ -161,13 +165,18 @@ var imageViewer = function (modules) {
                 }
             });
             return tags;
+        },
+        setupContainerCSS = function (node, css) {
+            for (var prop in css) {
+                node.style[prop] =  css[prop];
+            }
         };
 
 
     modules.imageViewer = function (nodeToAppend) {
-        nodeToAppend.setAttribute('id', 'fileEditor');
+
         var settings = {
-                maxWidth : 200,
+                maxWidth : 300,
                 maxHeight: 300
             },
             fc = {
@@ -181,53 +190,34 @@ var imageViewer = function (modules) {
                         });
                     }
                 },
-                scaleImageSize : function (img, maxWidth, maxHeight) {
-                    // TODO scale image correctly
-                    var scaleX = 0,
-                        scaleY = 0,
-                        height = img.height,
-                        width = img.width;
-                    if (width > maxWidth) {
-                        scaleX = ((width - maxWidth) * 100) / width;
-                        width = maxWidth;
-                    }
-
-                    if (scaleX !== 0) {
-                        height = (height * scaleX) / 100;
-                    }
-
-                    if (height > maxHeight) {
-                        scaleY = ((height - maxHeight) * 100) / height;
-                        height = maxHeight;
-                    }
-
-                    if (scaleY !== 0) {
-                        width = (width * scaleY) / 100;
-                    }
-
-                    return {
-                        w : width,
-                        h : height
-                    };
-                },
                 showImage : function (obj) {
-                    var img,
-                    // TODO     doesn't work if two files has same name
-                        actualImg = document.getElementById(obj.name);
+                    var img, id = config.idPrefix + obj.id,
+                        actualImg = document.getElementById(id);
 
-                    img = new Image();
-                    img.onload = function () {
-                        console.log('DONE IMAGE');
-                    };
-                    img.src =  "data:image/png;base64," + obj.data;
-                    (function (img) {
-                        var d = fc.scaleImageSize(img, settings.maxWidth, settings.maxHeight);
-                        img.width = d.w;
-                        img.height = d.h;
-                    }(img));
-                    img.domAppendTo(nodeToAppend);
+                    if (actualImg !== null) {
+                        actualImg.domRemoveClass('hidden');
+                    } else {
+                        img = new Image();
+                        img.onload = function () {
+                            console.log('DONE IMAGE');
+                        };
+                        img.src =  "data:image/png;base64," + obj.data;
+                        setupContainerCSS(img, {
+                            maxWidth : '100%',
+                            maxHeight : '100%'
+                        });
+                        img.setAttribute('id', id);
+                        img.domAppendTo(nodeToAppend);
+                    }
                 }
             };
+
+        nodeToAppend.setAttribute('id', 'fileEditor');
+
+        setupContainerCSS(nodeToAppend, {
+            width : settings.maxWidth + 'px',
+            height: settings.maxHeight + 'px'
+        });
 
         events.addServerListener('sendFile', function (obj) {
 
