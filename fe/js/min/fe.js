@@ -58,12 +58,13 @@ trade.ready(function () {
 module.exports = canny;
 
 },{"./cannymods/fileEditor.js":3,"./cannymods/imageViewer.js":4,"./cannymods/pathNavigation.js":5,"./trade.js":7,"dom-opts":30,"domready":31}],3:[function(require,module,exports){
-/*global ace */
+/*global */
 /*jslint browser: true */
 var trade = require('../trade.js'),
     events = require('../events.js'),
-    C = require('../../CONST.js');
-var ace = require("brace");
+    C = require('../../CONST.js'),
+    ace = require("brace");
+
 require('brace/mode/javascript');
 require('brace/mode/text');
 require('brace/mode/json');
@@ -104,14 +105,13 @@ var fileEditor = function (modules) {
         },
         getExtension = function (filePath) {
             return filePath.slice(filePath.lastIndexOf('.') + 1);
-        };
-
-    var editorSaver = (function () {
-        var editors = {};
-        return {
-            editors : editors
-        };
-    }());
+        },
+        editorSaver = (function () {
+            var editors = {};
+            return {
+                editors : editors
+            };
+        }());
 
     modules.fileEditor = function (nodeToAppend) {
         nodeToAppend.setAttribute('id', 'fileEditor');
@@ -138,13 +138,23 @@ var fileEditor = function (modules) {
                                 getExtension(obj.name)));
 //                    editor.setTheme('ace/theme/monokai');
                         editor.setTheme("ace/theme/twilight");
+                        editor.setReadOnly(true);
                     };
 
                 if (actualPre !== null) {
                     actualPre.domRemoveClass('hidden');
                 } else {
                     pre = window.domOpts.createElement('pre', id, 'aceEditor');
-                    pre.innerHTML = obj.data;
+                    if (/!DOCTYPE html/.test(obj.data.slice(0, 20))) {
+                        pre.innerHTML = obj.data.
+                            replace(/&/g, '&amp;').
+                            replace(/"/g, '&quot;').
+                            replace(/'/g, '&#39;').
+                            replace(/</g, '&lt;').
+                            replace(/>/g, '&gt;');
+                    } else {
+                        pre.innerHTML = obj.data;
+                    }
                     pre.domAppendTo(nodeToAppend);
 
                     showInAceEditor();
@@ -154,7 +164,6 @@ var fileEditor = function (modules) {
         };
 
         events.addServerListener('sendFile', function (obj) {
-            console.log('OPEN FILE IN EDITOR');
             fc.hideEditors();
             if (obj.fileType === C.FILE_MANAGER.FILE_TYPES.FILE) {
                 fc.showInEditor(obj);
@@ -165,7 +174,6 @@ var fileEditor = function (modules) {
 };
 
 module.exports = fileEditor;
-
 },{"../../CONST.js":1,"../events.js":6,"../trade.js":7,"brace":8,"brace/mode/css":9,"brace/mode/html":10,"brace/mode/javascript":11,"brace/mode/json":12,"brace/mode/text":13,"brace/theme/twilight":15,"dom-opts":30}],4:[function(require,module,exports){
 /*global ace */
 /*jslint browser: true */
