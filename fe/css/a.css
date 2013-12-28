@@ -3,6 +3,7 @@
     float: left;
     min-height: 200px;
 }
+.floatL {float: left;}
 /* MODULES */
 #fileEditor{
     float: left;
@@ -48,3 +49,5 @@
     opacity: 1;
 }
 #pathNavigation li > li {margin-left: 20px;}
+#imageViewer {}
+#imageViewer .hidden{display: none;}
