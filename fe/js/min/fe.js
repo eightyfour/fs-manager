@@ -83,10 +83,10 @@ require('brace/theme/twilight');
  - wrap editor with session div
  -- add 'start edit' button
  --- show save (and close) button (or save permanent)
- - implement editor session saver for saving own id
- -- save tab session id
- -- save path id
- - work with editor session saver id instead of path id
+ - implement editor session saver for saving own id  (y)
+ -- save tab session id  (y)
+ -- save path id  (y)
+ - work with editor session saver id instead of path id (is shorter)
  */
 
 window.domOpts = window.domOpts || require('dom-opts');
@@ -189,21 +189,19 @@ var fileEditor = (function () {
                 id : id,
                 editor : null,
                 fileProp : obj
-            });
-            editor = fc.showInEditor(id, obj);
+            }, id);
+            editor = fc.showInEditor(editorSessionId, obj);
 
             tabSessionId = tabManager.addTab({
                 onclick : function () {
                     var session = sessionHandler.session[editorSessionId];
-                    console.log('TAB WAS CLICKED', session);
                     fc.hideEditors();
-                    fc.showInEditor(session.id);
+                    fc.showInEditor(editorSessionId);
                     tabManager.activeTab(session.tabSessionId);
                 },
                 onclose : function () {
                     var session = sessionHandler.session[editorSessionId];
-                    console.log('CLOSE WAS CLICKED', sessionHandler.session[editorSessionId]);
-                    fc.removeEditor(session.id);
+                    fc.removeEditor(editorSessionId);
                     tabManager.removeTab(session.tabSessionId);
                 },
                 text : obj.name,
@@ -658,16 +656,25 @@ var sessionHandler = function (idPrefix) {
     "use strict";
 
     var id = 0,
-        session = {};
+        session = {},
+        ids = {};
 
     return {
-        save : function (object) {
-            var gId = idPrefix + id;
-            id++;
-            session[gId] = object;
-            return gId;
+        save : function (object, objId) {
+            var gId = idPrefix + id, ret;
+            if (objId && ids.hasOwnProperty(objId)) {
+                ret = ids[objId];
+            } else {
+                id++;
+                session[gId] = object;
+                ids[id] = gId;
+                ret = gId;
+            }
+
+            return ret;
         },
-        session : session
+        session : session,
+        ids : ids
     };
 };
 

@@ -1,6 +1,5 @@
 #pathMenu {
     width: 302px;
-    float: left;
     min-height: 200px;
 }
 .floatL {float: left;}
@@ -52,8 +51,9 @@
 #imageViewer {}
 #imageViewer .hidden{display: none;}
 #tabManager{
-    top: -12px;
+    display: table;
     position: relative;
+    width: 700px;
 }
 #tabManager .tab{
     float: left;
@@ -67,7 +67,7 @@
 }
 #tabManager .tab .activeButton{
     position: relative;
-    padding: 2px 10px;
+    padding: 2px 20px;
     float: left;
     max-width: 100px;
     height: 20px;
