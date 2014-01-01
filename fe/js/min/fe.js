@@ -83,10 +83,6 @@ require('brace/theme/twilight');
  - wrap editor with session div
  -- add 'start edit' button
  --- show save (and close) button (or save permanent)
- - implement editor session saver for saving own id  (y)
- -- save tab session id  (y)
- -- save path id  (y)
- - work with editor session saver id instead of path id (is shorter)
  */
 
 window.domOpts = window.domOpts || require('dom-opts');
@@ -211,6 +207,10 @@ var fileEditor = (function () {
             // save editor in session
             sessionHandler.session[editorSessionId].editor = editor;
             sessionHandler.session[editorSessionId].tabSessionId = tabSessionId;
+
+            tabManager.showTabBar();
+        } else {
+            tabManager.hideTabBar();
         }
     });
 
@@ -539,6 +539,12 @@ var tabManager = (function () {
         },
         activeTab : function (tabSessionId) {
             fc.activeTab(tabSessionId);
+        },
+        showTabBar : function () {
+            nodeToAppend.style.display = "";
+        },
+        hideTabBar : function () {
+            nodeToAppend.style.display = "none";
         }
     };
 }());

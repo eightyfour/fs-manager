@@ -5,7 +5,6 @@
 .floatL {float: left;}
 /* MODULES */
 #fileEditor{
-    float: left;
     position: relative;
 }
 #fileEditor .hidden{display: none;}
@@ -48,7 +47,7 @@
     opacity: 1;
 }
 #pathNavigation li > li {margin-left: 20px;}
-#imageViewer {}
+#imageViewer {display: inline-block;}
 #imageViewer .hidden{display: none;}
 #tabManager{
     display: table;
