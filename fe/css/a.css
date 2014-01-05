@@ -7,9 +7,11 @@
 #fileEditor{
     position: relative;
 }
+#fileEditor .fileEditor{
+
+}
 #fileEditor .hidden{display: none;}
 #fileEditor .aceEditor {
-    position: absolute;
     width: 700px;
     height: 600px;
 }
