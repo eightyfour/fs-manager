@@ -10,7 +10,8 @@
 		"express" : "x",
         "dnode" : "x",
         "domready" : "x",
-        "dom-opts" : "x",
+        "dom-opts" : "git://github.com/eightyfour/dom-opts.git",
+        "canny" : "git://github.com/eightyfour/canny.git",
         "shoe" : "x",
         "brace" : "x"
 	}

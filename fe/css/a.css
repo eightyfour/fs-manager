@@ -12,15 +12,19 @@
 }
 #fileEditor .hidden{display: none;}
 #fileEditor .aceEditor {
-    width: 700px;
-    height: 600px;
+    width: 880px;
+    height: 750px;
+    margin: 0;
 }
 #fileEditor #aceEditor2 {
     position: absolute;
     width: 500px;
     height: 400px;
 }
-#pathNavigation {position: relative;}
+#pathNavigation {
+    position: relative;
+    width: 300px;
+}
 #pathNavigation a {
     min-width: 100px;
     display: inline-block;
